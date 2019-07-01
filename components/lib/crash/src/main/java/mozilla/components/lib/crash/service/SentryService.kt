@@ -31,23 +31,27 @@ class SentryService(
     private val sendEventForNativeCrashes: Boolean = false,
     clientFactory: SentryClientFactory = AndroidSentryClientFactory(context)
 ) : CrashReporterService {
-    private val client: SentryClient = SentryClientFactory.sentryClient(
-        Uri.parse(dsn).buildUpon()
-            .appendQueryParameter("uncaught.handler.enabled", "false")
-            .build()
-            .toString(),
-        clientFactory).apply {
-        this.environment = environment
-        tags.forEach { entry ->
-            addTag(entry.key, entry.value)
+
+    private val client: SentryClient by lazy {
+        val clientDsn = Uri.parse(dsn).buildUpon()
+                .appendQueryParameter("uncaught.handler.enabled", "false")
+                .build()
+                .toString()
+
+        SentryClientFactory.sentryClient(clientDsn, clientFactory).apply {
+            this.environment = environment
+
+            tags.forEach { (key, value) ->
+                addTag(key, value)
+            }
+
+            // Add default tags
+            addTag("ac.version", Build.version)
+            addTag("ac.git", Build.gitHash)
+            addTag("ac.as.build_version", Build.applicationServicesVersion)
         }
-
-        // Add default tags
-        addTag("ac.version", Build.version)
-        addTag("ac.git", Build.gitHash)
-        addTag("ac.as.build_version", Build.applicationServicesVersion)
     }
-
+    
     override fun report(crash: Crash.UncaughtExceptionCrash) {
         client.sendException(crash.throwable)
     }
